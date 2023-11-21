@@ -6,3 +6,5 @@
 **/saves
 **/Additional_code
 *.code-workspace
+**.png
+**.gv

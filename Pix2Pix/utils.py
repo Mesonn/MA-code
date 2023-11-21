@@ -164,8 +164,6 @@ def concatenate_images(dir1, dir2, output_dir):
     for i, image in enumerate(concatenated_images):
         output_path = os.path.join(output_dir, f"{i+1}.png")
         cv2.imwrite(output_path, image)
-
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()        
+       
 
 
