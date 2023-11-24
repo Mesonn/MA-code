@@ -22,8 +22,8 @@ class GehirnDataset(Dataset):
         image = np.array(Image.open(img_path))
         width = image.shape[1]
         width = width //2 
-        input_image = image[:, :width, :]
-        target_image = image[:,width:,:]
+        input_image = image[:, width:, :]
+        target_image = image[:,:width,:]
 
         augmentations = config.both_transform(image= input_image,image0 = target_image)
         input_image,target_image = augmentations["image"],augmentations["image0"]

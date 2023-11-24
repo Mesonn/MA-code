@@ -12,6 +12,40 @@ import cv2
 from patchify import patchify,unpatchify
 from torchvision.utils import save_image
 
+def save_imgs(gen, val_loader, epoch, folder):
+    x, y = next(iter(val_loader))
+    x, y = x.to(config.DEVICE), y.to(config.DEVICE)
+    
+    gen.eval()  # Set the model to evaluation mode
+    with torch.no_grad():  # Disable gradient calculation
+        prediction = gen(x)
+    
+    plt.figure(figsize=(15,15))
+    for i in range(3):
+        plt.subplot(3, 3, i*3+1)
+        plt.title("Input Image")
+        plt.imshow(x[i].cpu().numpy().transpose((1, 2, 0)) * 0.5 + 0.5)
+        plt.axis("off")
+
+        plt.subplot(3, 3, i*3+2)
+        plt.title("Ground Truth")
+        plt.imshow(y[i].cpu().numpy().transpose((1, 2, 0)) * 0.5 + 0.5)
+        plt.axis("off")
+
+        plt.subplot(3, 3, i*3+3)
+        plt.title("Prediction Image")
+        plt.imshow(prediction[i].cpu().numpy().transpose((1, 2, 0)) * 0.5 + 0.5)
+        plt.axis("off")
+    
+    plt.savefig(os.path.join(folder, f"epoch_{epoch}.png"))
+    plt.close()
+
+def create_directory(directory, overwrite=False):
+    if os.path.exists(directory) and overwrite:
+        shutil.rmtree(directory)  # Removes an existing directory and its contents
+    if not os.path.exists(directory):
+        os.makedirs(directory)  # Creates a new directory
+
 def save_some_examples(gen, val_loader, epoch, folder):
     x, y = next(iter(val_loader))
     x, y = x.to(config.DEVICE), y.to(config.DEVICE)
@@ -26,7 +60,7 @@ def save_some_examples(gen, val_loader, epoch, folder):
     gen.train()
 
 
-def save_checkpoint(model, optimizer, filename="my_checkpoint.pth.tar"):
+def save_checkpoint(model, optimizer, filename):
     print("=> Saving checkpoint")
     checkpoint = {
         "state_dict": model.state_dict(),
@@ -46,17 +80,13 @@ def load_checkpoint(checkpoint_file, model, optimizer, lr):
     for param_group in optimizer.param_groups:
         param_group["lr"] = lr
 
-def create_directory(directory):
-    if os.path.exists(directory):
-        shutil.rmtree(directory)  # Removes an existing directory and its contents
-    os.makedirs(directory)  # Create
 
 def natural_sort_key(s):
         return [int(c) if c.isdigit() else c for c in re.split(r'(\d+)', s)]
 
 def generate_image_patches(images_path,image_patches_path,patch_size):
     patch_size_x , patch_size_y = patch_size
-    create_directory(image_patches_path)
+    create_directory(image_patches_path,overwrite=True)
     for path,subdirs,files in os.walk(images_path):
         print(path)
         #dirname = path.split(os.path.sep)
@@ -82,7 +112,7 @@ def generate_image_patches(images_path,image_patches_path,patch_size):
 
 def generate_mask_patches(masks_path,mask_patches_path,patch_size):
     patch_size_x , patch_size_y = patch_size
-    create_directory(mask_patches_path)
+    create_directory(mask_patches_path,overwrite=True)
     
     for path,subdirs,files in os.walk(masks_path):
         print(path)
@@ -160,7 +190,7 @@ def concatenate_images(dir1, dir2, output_dir):
         concatenated_images.append(concatenated_image)
 
     # Save concatenated images in output directory
-    os.makedirs(output_dir, exist_ok=True)
+    create_directory(output_dir,overwrite=True)
     for i, image in enumerate(concatenated_images):
         output_path = os.path.join(output_dir, f"{i+1}.png")
         cv2.imwrite(output_path, image)

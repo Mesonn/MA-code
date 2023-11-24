@@ -11,7 +11,8 @@ from utils import (
     save_checkpoint,
     get_loaders,
     check_accuracy,
-    save_prediction_imgs
+    save_prediction_imgs,
+    create_directory
 )
 
 
@@ -22,9 +23,9 @@ def train_fn(loader, model, optimizer,loss_fn,scaler):
         data = data.to(device = config.DEVICE)
         targets = targets.float().unsqueeze(1).to(device = config.DEVICE)
 
-        with torch.cuda.amp.autocast():
-            preds = model(data)
-            loss = loss_fn(preds,targets)
+        
+        preds = model(data)
+        loss = loss_fn(preds,targets)
 
         optimizer.zero_grad()
         scaler.scale(loss).backward()
@@ -34,6 +35,8 @@ def train_fn(loader, model, optimizer,loss_fn,scaler):
         loop.set_postfix(loss = loss.item())   
 
 def main():
+    create_directory(config.OUTPUT_DIR)
+    create_directory(config.CHECKPOINT_DIR)
     model = UNet(in_channels=3 , out_channels=1).to(device = config.DEVICE)
     loss_fn = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(),lr =config.LEARNING_RATE)

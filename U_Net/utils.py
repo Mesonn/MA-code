@@ -118,17 +118,19 @@ def save_prediction_imgs(
 
     model.train()    
 
-def create_directory(directory):
-    if os.path.exists(directory):
+def create_directory(directory, overwrite=False):
+    if os.path.exists(directory) and overwrite:
         shutil.rmtree(directory)  # Removes an existing directory and its contents
-    os.makedirs(directory)  # Create
+    if not os.path.exists(directory):
+        os.makedirs(directory)  # Creates a new directory
+
 
 def natural_sort_key(s):
         return [int(c) if c.isdigit() else c for c in re.split(r'(\d+)', s)]
 
 def generate_image_patches(images_path,image_patches_path,patch_size):
     patch_size_x , patch_size_y = patch_size
-    create_directory(image_patches_path)
+    create_directory(image_patches_path,overwrite= True)
     for path,subdirs,files in os.walk(images_path):
         print(path)
         #dirname = path.split(os.path.sep)
@@ -154,7 +156,7 @@ def generate_image_patches(images_path,image_patches_path,patch_size):
 
 def generate_mask_patches(masks_path,mask_patches_path,patch_size):
     patch_size_x , patch_size_y = patch_size
-    create_directory(mask_patches_path)
+    create_directory(mask_patches_path,overwrite= True)
     
     for path,subdirs,files in os.walk(masks_path):
         print(path)

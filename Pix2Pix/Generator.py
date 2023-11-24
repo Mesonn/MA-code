@@ -50,7 +50,7 @@ class Generator(nn.Module):
         )
         self.up1 = Block(features*8, features*8, down= False, act="relu", use_dropout=True)
         self.up2 = Block(features*8*2, features*8, down= False, act="relu", use_dropout=True)
-        self.up3 = Block(features*8*2, features*8, down= False, act="relu", use_dropout=True)
+        self.up3 = Block(features*8*2, features*8, down= False, act="relu", use_dropout=False)
         self.up4 = Block(features*8*2, features*8, down= False, act="relu", use_dropout=False)
         self.up5 = Block(features*8*2, features*4, down= False, act="relu", use_dropout=False)
         self.up6 = Block(features*4*2, features*2, down= False, act="relu", use_dropout=False)

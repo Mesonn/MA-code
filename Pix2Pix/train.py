@@ -1,5 +1,5 @@
 import torch
-from utils import save_checkpoint, load_checkpoint, save_some_examples
+from utils import save_checkpoint, load_checkpoint, save_some_examples,save_imgs,create_directory
 import torch.nn as nn
 import torch.optim as optim
 import config
@@ -23,13 +23,13 @@ def train_fn(
         y = y.to(config.DEVICE)
 
         # Train Discriminator
-        with torch.cuda.amp.autocast():
-            y_fake = gen(x)
-            D_real = disc(x, y)
-            D_real_loss = bce(D_real, torch.ones_like(D_real))
-            D_fake = disc(x, y_fake.detach())
-            D_fake_loss = bce(D_fake, torch.zeros_like(D_fake))
-            D_loss = (D_real_loss + D_fake_loss) / 2
+        #with torch.cuda.amp.autocast():
+        y_fake = gen(x)
+        D_real = disc(x, y)
+        D_real_loss = bce(D_real, torch.ones_like(D_real))
+        D_fake = disc(x, y_fake.detach())
+        D_fake_loss = bce(D_fake, torch.zeros_like(D_fake))
+        D_loss = (D_real_loss + D_fake_loss)/2 
 
         disc.zero_grad()
         d_scaler.scale(D_loss).backward()
@@ -37,11 +37,11 @@ def train_fn(
         d_scaler.update()
 
         # Train generator
-        with torch.cuda.amp.autocast():
-            D_fake = disc(x, y_fake)
-            G_fake_loss = bce(D_fake, torch.ones_like(D_fake))
-            L1 = l1_loss(y_fake, y) * config.L1_LAMBDA
-            G_loss = G_fake_loss + L1
+        #with torch.cuda.amp.autocast():
+        D_fake = disc(x, y_fake)
+        G_fake_loss = bce(D_fake, torch.ones_like(D_fake))
+        L1 = l1_loss(y_fake, y) * config.L1_LAMBDA
+        G_loss = G_fake_loss + L1
 
         opt_gen.zero_grad()
         g_scaler.scale(G_loss).backward()
@@ -56,8 +56,12 @@ def train_fn(
 
 
 def main():
+    create_directory(config.OUTPUT_DIR)
+    create_directory(config.CHECKPOINT_DIR)
+    
     disc = Discriminator(in_channels=3).to(config.DEVICE)
     gen = Generator(in_channels=3, features=64).to(config.DEVICE)
+
     opt_disc = optim.Adam(disc.parameters(), lr=config.LEARNING_RATE, betas=(0.5, 0.999),)
     opt_gen = optim.Adam(gen.parameters(), lr=config.LEARNING_RATE, betas=(0.5, 0.999))
     BCE = nn.BCEWithLogitsLoss()
@@ -92,7 +96,8 @@ def main():
             save_checkpoint(gen, opt_gen, filename=config.CHECKPOINT_GEN)
             save_checkpoint(disc, opt_disc, filename=config.CHECKPOINT_DISC)
         if epoch % 10 == 0:
-            save_some_examples(gen, val_loader, epoch, folder= config.OUTPUT_DIR)
+            #save_some_examples(gen, val_loader, epoch, folder= config.OUTPUT_DIR)
+            save_imgs(gen, val_loader, epoch, folder= config.OUTPUT_DIR)
 
 
 if __name__ == "__main__":
