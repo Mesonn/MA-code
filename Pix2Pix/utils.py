@@ -84,6 +84,45 @@ def load_checkpoint(checkpoint_file, model, optimizer, lr):
 def natural_sort_key(s):
         return [int(c) if c.isdigit() else c for c in re.split(r'(\d+)', s)]
 
+def check_accuracy(loader, generator, discriminator,disc_metrics,gen_metrics ,device = config.DEVICE, writer=None, epoch=None, is_train=False):
+    generator.eval()
+    discriminator.eval()
+
+
+    with torch.no_grad():
+        for batch_idx, (x, y) in enumerate(loader):
+            x = x.to(device)
+            y = y.to(device)
+            fake = generator(x)
+            real_preds = discriminator(x, y).view(-1)
+            fake_preds = discriminator(x, fake.detach()).view(-1)
+
+            real_targets = torch.ones_like(real_preds, device=device)
+            fake_targets = torch.zeros_like(fake_preds, device=device)
+
+            # Update disc metrics
+            disc_metrics.update(torch.cat([real_preds, fake_preds]), torch.cat([real_targets, fake_targets]))
+            #Update gen metrics 
+            gen_metrics.update(fake, y)
+        # Compute metrics
+        computed_disc_metrics = disc_metrics.compute()
+        computed_gen_metrics = gen_metrics.compute()
+        # Add metrics to TensorBoard
+        for name, value in computed_disc_metrics.items():
+            writer.add_scalar(f'{"Train" if is_train else "Validation"}/{name}', value, epoch)
+        for name, value in computed_gen_metrics.items():
+            writer.add_scalar(f'{"Train" if is_train else "Validation"}/{name}', value, epoch)
+        disc_metrics.reset()
+        gen_metrics.reset()
+
+
+    generator.train()
+    discriminator.train()
+
+
+
+
+
 def generate_image_patches(images_path,image_patches_path,patch_size):
     patch_size_x , patch_size_y = patch_size
     create_directory(image_patches_path,overwrite=True)

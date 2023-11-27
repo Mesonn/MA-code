@@ -3,6 +3,7 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure,VisualInformationFidelity
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
+from torchmetrics.classification import BinaryAccuracy,BinaryF1Score,BinaryJaccardIndex,Dice
 import os
 import cv2
 from datetime import datetime
@@ -53,11 +54,17 @@ transform_only_mask = A.Compose(
     ]
 )
 
-METRICS ={
+GEN_METRICS ={
     "PSNR": PeakSignalNoiseRatio(),
     "SSIM":StructuralSimilarityIndexMeasure(),
     "LPIPS":LearnedPerceptualImagePatchSimilarity(),
     "VIF":VisualInformationFidelity()
 }
+
+DISC_METRICS = {
+    "Accuracy": BinaryAccuracy(),
+    "F1 Score":BinaryF1Score(),
+}
+
 if __name__ == "__main__":
     print(TRAIN_DIR)

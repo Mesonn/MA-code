@@ -4,6 +4,7 @@ from dataset import SegDataset
 from torch.utils.data import DataLoader
 import config
 import matplotlib.pyplot as plt
+from model import UNet
 import os
 import re
 from PIL import Image
@@ -96,6 +97,62 @@ def check_accuracy(loader, model, device=config.DEVICE, metrics=None, writer=Non
         metrics.reset()      
 
     model.train()
+
+def plot_one_example(loader, model, epoch ,folder=config.OUTPUT_DIR, device=config.DEVICE):
+    model.eval()
+    for idx, (x, y) in enumerate(loader):
+        x = x.to(device=config.DEVICE)
+        with torch.no_grad():
+            preds = torch.sigmoid(model(x))
+            preds = (preds > 0.5).float()
+        for img_idx, (img, gt, pred) in enumerate(zip(x, y, preds)):
+            # Plot original image, ground truth, and prediction
+            fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+            axs[0].imshow(img.cpu().permute(1, 2, 0))  # Assuming img is in (C, H, W) format
+            axs[0].set_title('Original Image')
+            axs[1].imshow(gt.cpu().squeeze(), cmap='gray')
+            axs[1].set_title('Ground Truth')
+            axs[2].imshow(pred.cpu().squeeze(), cmap='gray')
+            axs[2].set_title('Prediction')
+            for ax in axs:
+                ax.axis('off')
+            plt.savefig(f"{folder}/result_epoch_{epoch}.png")
+            plt.close(fig)
+            break
+    model.train()
+
+def visualize_prediction(model, dataset, index, folder, checkpoint=None):
+    if model is None and checkpoint is not None:
+        # Initialize your model here
+        model = UNet()  # Replace with your model class
+        model.load_state_dict(torch.load(checkpoint))
+    elif model is None and checkpoint is None:
+        raise ValueError("Both model and checkpoint cannot be None")
+
+    model.eval()  # Set the model to evaluation mode
+    x, y = dataset[index]  # Get the image and its label
+    x = x.unsqueeze(0)  # Add a batch dimension
+    y = y.unsqueeze(0)  # Add a batch dimension
+    with torch.no_grad():
+        preds = torch.sigmoid(model(x))
+        preds = (preds > 0.5).float()
+    # Plot original image, ground truth, and prediction
+    fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+    axs[0].imshow(x[0].cpu().permute(1, 2, 0))  # Assuming img is in (C, H, W) format
+    axs[0].set_title('Original Image')
+    axs[1].imshow(y[0].cpu().squeeze(), cmap='gray')
+    axs[1].set_title('Ground Truth')
+    axs[2].imshow(preds[0].cpu().squeeze(), cmap='gray')
+    axs[2].set_title('Prediction')
+    for ax in axs:
+        ax.axis('off')
+    plt.savefig(f"{folder}/result_img_{index}.png")
+    plt.close(fig)
+    model.train()  # Set the model back to training mode
+
+
+
+
 
 
 def save_prediction_imgs(

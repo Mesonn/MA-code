@@ -1,5 +1,5 @@
 import torch
-from utils import save_checkpoint, load_checkpoint, save_some_examples,save_imgs,create_directory
+from utils import save_checkpoint, load_checkpoint, check_accuracy,save_imgs,create_directory
 import torch.nn as nn
 import torch.optim as optim
 import config
@@ -8,7 +8,9 @@ from Generator import Generator
 from Discriminator import Discriminator
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import save_image
+from torchmetrics import MetricCollection
 
 #torch.backends.cudnn.benchmark = True
 
@@ -58,9 +60,11 @@ def train_fn(
 def main():
     create_directory(config.OUTPUT_DIR)
     create_directory(config.CHECKPOINT_DIR)
-    
+    writer = SummaryWriter(log_dir=config.LOG_DIR)
     disc = Discriminator(in_channels=3).to(config.DEVICE)
     gen = Generator(in_channels=3, features=64).to(config.DEVICE)
+    gen_metrics = MetricCollection(config.GEN_METRICS).to(device = config.DEVICE)
+    disc_metrics = MetricCollection(config.DISC_METRICS).to(device = config.DEVICE)
 
     opt_disc = optim.Adam(disc.parameters(), lr=config.LEARNING_RATE, betas=(0.5, 0.999),)
     opt_gen = optim.Adam(gen.parameters(), lr=config.LEARNING_RATE, betas=(0.5, 0.999))
@@ -91,7 +95,8 @@ def main():
         train_fn(
             disc, gen, train_loader, opt_disc, opt_gen, L1_LOSS, BCE, g_scaler, d_scaler,
         )
-
+        check_accuracy(train_loader, gen,disc,disc_metrics,gen_metrics ,device=config.DEVICE, writer=writer, epoch=epoch, is_train=True)
+        check_accuracy(val_loader, gen, disc,disc_metrics,gen_metrics ,device=config.DEVICE, writer=writer, epoch=epoch, is_train=False)
         if config.SAVE_MODEL and epoch % 5 == 0:
             save_checkpoint(gen, opt_gen, filename=config.CHECKPOINT_GEN)
             save_checkpoint(disc, opt_disc, filename=config.CHECKPOINT_DISC)

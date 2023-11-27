@@ -1,11 +1,8 @@
 import torch
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
 from tqdm import tqdm
 import torch.nn as nn
 import torch.optim as optim
 import config
-import torchmetrics.classification
 from torchmetrics import MetricCollection
 from model import UNet
 from utils import (
@@ -13,8 +10,8 @@ from utils import (
     save_checkpoint,
     get_loaders,
     check_accuracy,
-    save_prediction_imgs,
-    create_directory
+    create_directory,
+    plot_one_example
 )
 from torch.utils.tensorboard import SummaryWriter
 
@@ -78,8 +75,9 @@ def main():
         # Check accuracy on validation data
         check_accuracy(val_loader, model, device=config.DEVICE, metrics=metrics, writer=writer, epoch=epoch, is_train=False)
 
-        if epoch % 20 == 0:
-            save_prediction_imgs(val_loader, model, folder= config.OUTPUT_DIR)
+        if epoch % 10 == 0:
+            plot_one_example(val_loader,model,epoch,folder = config.OUTPUT_DIR)
+            #save_prediction_imgs(val_loader, model, folder= config.OUTPUT_DIR)
 
 
 if __name__ == "__main__":
