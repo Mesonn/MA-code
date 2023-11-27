@@ -5,6 +5,8 @@ from tqdm import tqdm
 import torch.nn as nn
 import torch.optim as optim
 import config
+import torchmetrics.classification
+from torchmetrics import MetricCollection
 from model import UNet
 from utils import (
     load_checkpoint,
@@ -14,6 +16,7 @@ from utils import (
     save_prediction_imgs,
     create_directory
 )
+from torch.utils.tensorboard import SummaryWriter
 
 
 def train_fn(loader, model, optimizer,loss_fn,scaler):
@@ -32,14 +35,18 @@ def train_fn(loader, model, optimizer,loss_fn,scaler):
         scaler.step(optimizer)
         scaler.update() 
 
+
         loop.set_postfix(loss = loss.item())   
 
 def main():
     create_directory(config.OUTPUT_DIR)
     create_directory(config.CHECKPOINT_DIR)
+    writer = SummaryWriter(log_dir=config.LOG_DIR)
     model = UNet(in_channels=3 , out_channels=1).to(device = config.DEVICE)
     loss_fn = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(),lr =config.LEARNING_RATE)
+    metrics = MetricCollection(config.METRICS).to(device = config.DEVICE)
+
 
     if config.LOAD_MODEL:
         load_checkpoint(
@@ -65,12 +72,14 @@ def main():
         # save Model 
         if config.SAVE_MODEL and epoch % 5 == 0:
             save_checkpoint(model, optimizer , filename=config.CHECKPOINT_FILE)
+        # Check accuracy on training data
+        check_accuracy(train_loader, model, device=config.DEVICE, metrics=metrics, writer=writer, epoch=epoch, is_train=True)
 
-        check_accuracy(val_loader,model,device=config.DEVICE)            
-        if epoch % 1 == 0:
+        # Check accuracy on validation data
+        check_accuracy(val_loader, model, device=config.DEVICE, metrics=metrics, writer=writer, epoch=epoch, is_train=False)
+
+        if epoch % 20 == 0:
             save_prediction_imgs(val_loader, model, folder= config.OUTPUT_DIR)
-
-
 
 
 if __name__ == "__main__":

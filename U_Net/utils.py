@@ -76,30 +76,26 @@ def get_loaders(
 
     return train_loader, val_loader
 
-def check_accuracy(loader,model,device = config.DEVICE):
-    num_correct = 0
-    num_pixels = 0
-    dice_score = 0
+def check_accuracy(loader, model, device=config.DEVICE, metrics=None, writer=None, epoch=None, is_train=False):
+
     model.eval()
+
     with torch.no_grad():
-        for x, y in loader:
+        for batch_idx, (x, y) in enumerate(loader):
             x = x.to(device)
-            y = y.to(device).unsqueeze(1)
+            y = y.to(device).unsqueeze(1).long()
             preds = torch.sigmoid(model(x))
             preds = (preds > 0.5).float()
-            num_correct += (preds == y).sum()
-            num_pixels += torch.numel(preds)
-            dice_score += (2 * (preds*y).sum()) /((preds +y ).sum() +1e-6)
-            
-        
-        accuracy = num_correct/ num_pixels
-        print(
-            f"Pixel Accuracy : {accuracy*100:2f}"
-        )
-        print(
-            f"Dice score:{dice_score/len(loader)}"
-        )
-        model.train()
+
+            metrics.update(preds, y)
+
+        computed_metrics = metrics.compute()
+        for name, value in computed_metrics.items():
+            writer.add_scalar(f'{"Train" if is_train else "Validation"}/{name}', value, epoch)
+
+        metrics.reset()      
+
+    model.train()
 
 
 def save_prediction_imgs(

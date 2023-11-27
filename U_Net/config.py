@@ -5,6 +5,7 @@ from albumentations.pytorch import ToTensorV2
 import os
 import cv2
 from datetime import datetime
+from torchmetrics.classification import BinaryAccuracy,BinaryF1Score,BinaryJaccardIndex,Dice
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -14,17 +15,19 @@ TRAIN_MASK_DIR =os.path.join(BASE_DIR, "dataset/train/masks")
 VAL_IMG_DIR = os.path.join(BASE_DIR, "dataset/test/images")
 VAL_MASK_DIR = os.path.join(BASE_DIR, "dataset/test/masks")
 OUTPUT_DIR  = os.path.join(BASE_DIR, f"output/out_{timestamp}")
+LOG_DIR = os.path.join(BASE_DIR, f"logs/log_{timestamp}") 
 LEARNING_RATE = 1e-4
 BATCH_SIZE = 16
 NUM_WORKERS = 4
-IMAGE_HEIGHT = 300
-IMAGE_WIDTH = 300
+IMAGE_HEIGHT = 224
+IMAGE_WIDTH = 224
 NUM_EPOCHS = 100
 PIN_MEMORY = True
 LOAD_MODEL = False
 SAVE_MODEL = False
 CHECKPOINT_DIR = os.path.join(BASE_DIR, f"saves/save_{timestamp}")
 CHECKPOINT_FILE = os.path.join(CHECKPOINT_DIR,"unet.pth.tar")
+
 
 train_transform = A.Compose(
         [
@@ -51,3 +54,10 @@ val_transforms = A.Compose(
             ToTensorV2(),
         ],
     )
+
+METRICS ={
+    "Accuracy": BinaryAccuracy(),
+    "F1 Score":BinaryF1Score(),
+    "IoU":BinaryJaccardIndex(),
+    "Dice":Dice()
+}

@@ -1,6 +1,8 @@
 import torch
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
+from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure,VisualInformationFidelity
+from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 import os
 import cv2
 from datetime import datetime
@@ -10,6 +12,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 TRAIN_DIR = os.path.join(BASE_DIR, "dataset/train")
 VAL_DIR = os.path.join(BASE_DIR, "dataset/test")
 OUTPUT_DIR  = os.path.join(BASE_DIR, f"output/out_{timestamp}")
+LOG_DIR = os.path.join(BASE_DIR, f"logs/log_{timestamp}") 
 LEARNING_RATE = 2e-4
 BATCH_SIZE = 16
 NUM_WORKERS = 2
@@ -50,6 +53,11 @@ transform_only_mask = A.Compose(
     ]
 )
 
-
+METRICS ={
+    "PSNR": PeakSignalNoiseRatio(),
+    "SSIM":StructuralSimilarityIndexMeasure(),
+    "LPIPS":LearnedPerceptualImagePatchSimilarity(),
+    "VIF":VisualInformationFidelity()
+}
 if __name__ == "__main__":
     print(TRAIN_DIR)

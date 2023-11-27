@@ -5,6 +5,7 @@
 **/additional_code
 **/saves
 **/Additional_code
+**/logs
 *.code-workspace
 **.png
 **.gv
