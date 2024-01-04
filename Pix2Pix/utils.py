@@ -2,6 +2,8 @@ import torch
 import config
 import matplotlib.pyplot as plt
 import os
+from Dataset import GehirnDataset
+from torch.utils.data import DataLoader
 import re
 from PIL import Image
 import tifffile as tiff
@@ -121,8 +123,6 @@ def check_accuracy(loader, generator, discriminator,disc_metrics,gen_metrics ,de
 
 
 
-
-
 def generate_image_patches(images_path,image_patches_path,patch_size):
     patch_size_x , patch_size_y = patch_size
     create_directory(image_patches_path,overwrite=True)
@@ -235,4 +235,42 @@ def concatenate_images(dir1, dir2, output_dir):
         cv2.imwrite(output_path, image)
        
 
+def get_loaders(
+    train_dir,
+    train_maskdir,
+    val_dir,
+    val_maskdir,
+    batch_size,
+    train_transform,
+    test_transform,
+    num_workers=4,
+    pin_memory=True,
+):
+    train_ds = GehirnDataset(
+        image_dir=train_dir,
+        trans_dir=train_maskdir,
+        transform=train_transform,
+    )
 
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        shuffle=True,
+    )
+
+    val_ds = GehirnDataset(
+        image_dir=val_dir,
+        trans_dir=val_maskdir,
+        transform=test_transform,
+    )
+
+    val_loader = DataLoader(
+        val_ds,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        shuffle=False,
+    )
+    return train_loader, val_loader

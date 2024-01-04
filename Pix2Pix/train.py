@@ -1,5 +1,5 @@
 import torch
-from utils import save_checkpoint, load_checkpoint, check_accuracy,save_imgs,create_directory
+from utils import save_checkpoint, load_checkpoint, check_accuracy,save_imgs,create_directory,get_loaders
 import torch.nn as nn
 import torch.optim as optim
 import config
@@ -79,17 +79,20 @@ def main():
             config.CHECKPOINT_DISC, disc, opt_disc, config.LEARNING_RATE,
         )
 
-    train_dataset = GehirnDataset(root_dir=config.TRAIN_DIR)
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=config.BATCH_SIZE,
-        shuffle=True,
-        num_workers=config.NUM_WORKERS,
+    train_loader,val_loader = get_loaders(
+        config.TRAIN_IMG_DIR,
+        config.TRAIN_TRANS_DIR,
+        config.VAL_IMG_DIR,
+        config.VAL_TRANS_DIR,
+        config.BATCH_SIZE,
+        config.TRAIN_TRANSFORM,
+        config.TEST_TRANSFORM,
+        config.NUM_WORKERS,
+        config.PIN_MEMORY,
     )
+
     g_scaler = torch.cuda.amp.GradScaler()
     d_scaler = torch.cuda.amp.GradScaler()
-    val_dataset = GehirnDataset(root_dir=config.VAL_DIR)
-    val_loader = DataLoader(val_dataset, batch_size=5, shuffle=False)
 
     for epoch in range(config.NUM_EPOCHS):
         train_fn(
