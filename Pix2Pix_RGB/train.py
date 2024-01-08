@@ -34,9 +34,11 @@ def train_fn(
         D_loss = (D_real_loss + D_fake_loss)/2 
 
         disc.zero_grad()
-        d_scaler.scale(D_loss).backward()
-        d_scaler.step(opt_disc)
-        d_scaler.update()
+        D_loss.backward()
+        opt_disc.step()
+        #d_scaler.scale(D_loss).backward()
+        #d_scaler.step(opt_disc)
+        #d_scaler.update()
 
         # Train generator
         #with torch.cuda.amp.autocast():
@@ -46,9 +48,11 @@ def train_fn(
         G_loss = G_fake_loss + L1
 
         opt_gen.zero_grad()
-        g_scaler.scale(G_loss).backward()
-        g_scaler.step(opt_gen)
-        g_scaler.update()
+        G_loss.backward()
+        opt_gen.step()
+        #g_scaler.scale(G_loss).backward()
+        #g_scaler.step(opt_gen)
+        #g_scaler.update()
 
         if idx % 10 == 0:
             loop.set_postfix(
@@ -100,7 +104,7 @@ def main():
         )
         check_accuracy(train_loader, gen,disc,disc_metrics,gen_metrics ,device=config.DEVICE, writer=writer, epoch=epoch, is_train=True)
         check_accuracy(val_loader, gen, disc,disc_metrics,gen_metrics ,device=config.DEVICE, writer=writer, epoch=epoch, is_train=False)
-        if config.SAVE_MODEL and epoch % 5 == 0:
+        if config.SAVE_MODEL and epoch % 50 == 0:
             save_checkpoint(gen, opt_gen, filename=config.CHECKPOINT_GEN)
             save_checkpoint(disc, opt_disc, filename=config.CHECKPOINT_DISC)
         if epoch % 10 == 0:
