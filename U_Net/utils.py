@@ -294,3 +294,64 @@ def concatenate_images(dir1, dir2, output_dir):
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+
+def corp_image(image,patch_size):
+    patch_size_x , patch_size_y,channels = patch_size
+    if patch_size_x > image.shape[1] or patch_size_y > image.shape[0]:
+        raise ValueError("Patch size is larger than image size")
+    SIZE_X = (image.shape[1]//patch_size_x)*patch_size_x
+    SIZE_Y = (image.shape[0]//patch_size_y)*patch_size_y
+    rest_pixels_x = image.shape[1] - SIZE_X
+    rest_pixels_y = image.shape[0] - SIZE_Y
+    origin_x = rest_pixels_x // 2
+    origin_y = rest_pixels_y // 2
+    corped_image = image[origin_y:origin_y+SIZE_Y, origin_x:origin_x+SIZE_X]
+    return corped_image
+
+def denormalize(tensor, mean, std):
+    for t, m, s in zip(tensor, mean, std):
+        t = t*s + m
+    return tensor
+
+def make_UNet_prediction(image_path, patch_size,checkpoint_file, save_dir =None):
+    image = cv2.imread(image_path,cv2.IMREAD_COLOR)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    corped_image = corp_image(image,patch_size)
+    image_patches = patchify(corped_image,patch_size,step = patch_size[0])
+    model = UNet(in_channels=3 , out_channels=1).to(device = config.DEVICE)
+    optimizer = torch.optim.Adam(model.parameters(),lr =config.LEARNING_RATE)
+    image_prediction = []
+    load_checkpoint(checkpoint_file,model = model ,optimizer=optimizer,lr  = config.LEARNING_RATE)
+    #model.load_state_dict(torch.load(weights)[0])
+    model.eval()
+    for i in range(image_patches.shape[0]):
+        for j in range(image_patches.shape[1]):
+            patch = image_patches[i,j,:,:]
+            patch = patch.squeeze()
+            patch = config.val_transforms(image = patch)["image"]
+            with torch.no_grad():
+                patch = patch.unsqueeze(0).to(device = config.DEVICE) 
+                prediction = torch.sigmoid(model(patch))
+                prediction = (prediction > 0.5).float()
+                image_prediction.append(prediction.cpu().numpy())
+    image_prediction = np.array(image_prediction).squeeze(1)
+    image_prediction = image_prediction.reshape(image_patches.shape[0],image_patches.shape[1],patch_size[0], patch_size[1])
+    target_image_shape = (corped_image.shape[0],corped_image.shape[1])
+    merged_image = unpatchify(image_prediction,target_image_shape)
+    merged_image = denormalize(merged_image, [0.0, 0.0, 0.0], [1.0, 1.0, 1.0])
+    merged_image = merged_image * 255
+    merged_image = merged_image.astype(np.uint8)
+    if save_dir is not None:
+        # Ensure the save directory exists
+        os.makedirs(save_dir, exist_ok=True)
+
+        # Save the cropped image as an RGB image
+        cropped_image_path = os.path.join(save_dir, 'cropped_image.png')
+        cv2.imwrite(cropped_image_path, cv2.cvtColor(corped_image, cv2.COLOR_RGB2BGR))
+
+        # Save the merged prediction image as a grayscale image
+        merged_image_path = os.path.join(save_dir, 'merged_image.png')
+        cv2.imwrite(merged_image_path, merged_image)
+
+    return corped_image, merged_image

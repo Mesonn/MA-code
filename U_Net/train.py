@@ -67,7 +67,7 @@ def main():
         train_fn(train_loader,model,optimizer,loss_fn,scaler)
 
         # save Model 
-        if config.SAVE_MODEL and epoch % 5 == 0:
+        if config.SAVE_MODEL and epoch % 50 == 0:
             save_checkpoint(model, optimizer , filename=config.CHECKPOINT_FILE)
         # Check accuracy on training data
         check_accuracy(train_loader, model, device=config.DEVICE, metrics=metrics, writer=writer, epoch=epoch, is_train=True)

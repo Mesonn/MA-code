@@ -49,7 +49,11 @@ TRAIN_TRANSFORM = A.Compose(
 TEST_TRANSFORM = A.Compose(
     [   
         A.Resize(width=256, height=256,interpolation=cv2.INTER_NEAREST),
-        A.Normalize(mean=0.5,std=0.5),
+        A.Normalize(
+                mean=[0.5, 0.5, 0.5],
+                std=[0.5, 0.5, 0.5],
+                max_pixel_value=255.0,
+            ),
         ToTensorV2(),
     ],additional_targets= {"trans":"image"}
 )
