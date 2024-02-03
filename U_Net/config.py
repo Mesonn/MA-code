@@ -12,19 +12,21 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 TRAIN_IMG_DIR = os.path.join(BASE_DIR, "dataset/train/images1")
 TRAIN_MASK_DIR =os.path.join(BASE_DIR, "dataset/train/masks1")
-VAL_IMG_DIR = os.path.join(BASE_DIR, "dataset/test/images1")
-VAL_MASK_DIR = os.path.join(BASE_DIR, "dataset/test/masks1")
+VAL_IMG_DIR = os.path.join(BASE_DIR, "dataset/test/image2")
+VAL_MASK_DIR = os.path.join(BASE_DIR, "dataset/test/mask2")
 OUTPUT_DIR  = os.path.join(BASE_DIR, f"output/out_{timestamp}")
-LOG_DIR = os.path.join(BASE_DIR, f"logs/log_{timestamp}") 
+LOG_DIR = os.path.join(BASE_DIR, f"logs/log_{timestamp}")
+LOG_DIR_FEST = os.path.join(BASE_DIR, f"logs_HP") 
+CURVES_DIR = os.path.join(BASE_DIR, f"curves")
 LEARNING_RATE = 1e-4
 BATCH_SIZE = 16
 NUM_WORKERS = 4
 IMAGE_HEIGHT = 256
 IMAGE_WIDTH = 256
-NUM_EPOCHS = 101
+NUM_EPOCHS = 501
 PIN_MEMORY = True
 LOAD_MODEL = False
-SAVE_MODEL = True
+SAVE_MODEL = False
 CHECKPOINT_DIR = os.path.join(BASE_DIR, f"saves/save_{timestamp}")
 CHECKPOINT_FILE = os.path.join(CHECKPOINT_DIR,"unet.pth.tar")
 
@@ -58,7 +60,6 @@ val_transforms = A.Compose(
 
 METRICS ={
     "Accuracy": BinaryAccuracy(),
-    "F1 Score":BinaryF1Score(),
     "IoU":BinaryJaccardIndex(),
     "Dice":Dice()
 }

@@ -104,10 +104,10 @@ def main():
         )
         check_accuracy(train_loader, gen,disc,disc_metrics,gen_metrics ,device=config.DEVICE, writer=writer, epoch=epoch, is_train=True)
         check_accuracy(val_loader, gen, disc,disc_metrics,gen_metrics ,device=config.DEVICE, writer=writer, epoch=epoch, is_train=False)
-        if config.SAVE_MODEL and epoch % 50 == 0:
+        if config.SAVE_MODEL and epoch % 100 == 0:
             save_checkpoint(gen, opt_gen, filename=config.CHECKPOINT_GEN)
             save_checkpoint(disc, opt_disc, filename=config.CHECKPOINT_DISC)
-        if epoch % 10 == 0:
+        if epoch % 20 == 0:
             #save_some_examples(gen, val_loader, epoch, folder= config.OUTPUT_DIR)
             save_imgs(gen, val_loader, epoch, folder= config.OUTPUT_DIR)
 

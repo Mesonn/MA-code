@@ -23,7 +23,7 @@ NUM_WORKERS = 4
 IMAGE_SIZE = 256
 CHANNELS_IMG = 3
 L1_LAMBDA = 100
-NUM_EPOCHS = 1001
+NUM_EPOCHS = 100
 LOAD_MODEL = False
 SAVE_MODEL = True
 TRANSFORM = True
@@ -66,18 +66,14 @@ TEST_TRANSFORM = A.Compose(
 
 
 
-GEN_METRICS ={
+METRICS = {
     "PSNR": PeakSignalNoiseRatio(),
     "SSIM":StructuralSimilarityIndexMeasure(),
     "LPIPS":LearnedPerceptualImagePatchSimilarity(),
     "VIF":VisualInformationFidelity(),
-    "MSE": MeanSquaredError(),
+    "MSE": MeanSquaredError()
 }
 
-DISC_METRICS = {
-    "Accuracy": BinaryAccuracy(),
-    #"F1 Score":BinaryF1Score(),
-}
 
 if __name__ == "__main__":
     print(TRAIN_IMG_DIR)

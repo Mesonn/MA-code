@@ -4,6 +4,8 @@
 **/some_outputs
 **/additional_code
 **/saves
+**/logs_HP
+**/curves
 **/Additional_code
 **/logs
 *.code-workspace

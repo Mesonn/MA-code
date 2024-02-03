@@ -2,6 +2,7 @@ import torch
 import torchvision
 from dataset import SegDataset
 from torch.utils.data import DataLoader
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 import config
 import matplotlib.pyplot as plt
 from model import UNet
@@ -69,7 +70,7 @@ def get_loaders(
 
     val_loader = DataLoader(
         val_ds,
-        batch_size=batch_size,
+        batch_size=1,
         num_workers=num_workers,
         pin_memory=pin_memory,
         shuffle=False,
@@ -97,6 +98,54 @@ def check_accuracy(loader, model, device=config.DEVICE, metrics=None, writer=Non
         metrics.reset()      
 
     model.train()
+    
+def check_accuracy_Test(loader, model,lr,batch_size, device=config.DEVICE, metrics=None, writer=None, epoch=None, is_train=False):
+
+    model.eval()
+
+    with torch.no_grad():
+        for batch_idx, (x, y) in enumerate(loader):
+            x = x.to(device)
+            y = y.to(device).unsqueeze(1).long()
+            preds = torch.sigmoid(model(x))
+            preds = (preds > 0.5).float()
+
+            metrics.update(preds, y)
+
+        computed_metrics = metrics.compute()
+        writer.add_hparams({'bsize':batch_size,'lr': lr},
+                               computed_metrics)        
+        for name, value in computed_metrics.items():
+            writer.add_scalar(f'{"Train" if is_train else "Validation"}/{name}', value, epoch)
+
+        metrics.reset()      
+
+    model.train()    
+
+
+def plot_index_example(loader, model, index, epoch, folder=config.OUTPUT_DIR, device=config.DEVICE):
+    model.eval()
+
+    x, y = loader.dataset[index]
+    #print(a,b)
+    x = x.unsqueeze(0).to(device=config.DEVICE)
+    with torch.no_grad():
+        preds = torch.sigmoid(model(x))
+        preds = (preds > 0.5).float()
+    # Plot original image, ground truth, and prediction
+    fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+    axs[0].imshow(x[0].cpu().permute(1, 2, 0))  # Assuming img is in (C, H, W) format
+    axs[0].set_title('Original Image')
+    axs[1].imshow(y.cpu().squeeze(), cmap='tab20b')
+    axs[1].set_title('Ground Truth')
+    axs[2].imshow(preds[0].cpu().squeeze(), cmap='tab20b')
+    axs[2].set_title('Prediction')
+    for ax in axs:
+        ax.axis('off')
+    plt.savefig(f"{folder}/result_epoch_{epoch}_index_{index}.png")
+    plt.close(fig)
+    model.train()
+
 
 def plot_one_example(loader, model, epoch ,folder=config.OUTPUT_DIR, device=config.DEVICE):
     model.eval()
@@ -355,3 +404,205 @@ def make_UNet_prediction(image_path, patch_size,checkpoint_file, save_dir =None)
         cv2.imwrite(merged_image_path, merged_image)
 
     return corped_image, merged_image
+
+def make_overlay(image_path, Mask_path):
+    image = cv2.imread(image_path)
+    mask = cv2.imread(Mask_path, cv2.IMREAD_GRAYSCALE)
+# Create an overlay by setting the mask to be 3 channels
+    mask_colored = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+
+    # Scale the mask colors to be between 0 and 1
+    mask_colored = mask_colored / 255.0
+
+    # Choose a color for the mask (red in this case)
+    mask_color = np.array([255, 0, 0], dtype=np.uint8)
+
+    # Apply the color to the mask
+    mask_colored *= mask_color
+
+    # Overlay the mask on the image
+    overlay = cv2.addWeighted(image, 1.0, mask_colored, 0.3, 0, dtype=cv2.CV_8U)
+
+    # Save the result
+    cv2.imwrite('overlay.png', overlay)
+
+
+def plot_tensorboard_log(log_dir, scalar_name):
+    # Create an event accumulator
+    event_acc = EventAccumulator(log_dir)
+
+    # Load the events from the log file
+    event_acc.Reload()
+
+    # Get the data for the specified scalar
+    scalar_data = event_acc.Scalars(scalar_name)
+
+    # Get the steps and the corresponding values
+    steps = [s.step for s in scalar_data]
+    values = [s.value for s in scalar_data]
+
+    return steps, values
+
+def get_all_metrics(log_dir, metrics, dset = "Validation" ):
+    # Initialize a dictionary to store the steps and values for each metric
+    data = {}
+
+    for metric in metrics:
+        metric_name = f'{dset}/{metric}'
+        # Get the steps and values for the current metric
+        steps, values = plot_tensorboard_log(log_dir, metric_name)
+
+        # Store the steps and values in the dictionary
+        data[metric] = (steps, values)
+
+    return data 
+
+   
+def transform_and_save(image_path, mask_path, save_path_image, save_path_mask, transforms):
+    image = cv2.imread(image_path)
+    #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # Convert from BGR to RGB
+    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+
+    counter = 0 
+    for trans in transforms:
+        transformed =  trans(image = image, mask = mask)
+        cv2.imwrite(save_path_image+f"/{counter}.png", transformed["image"])  # Modify the file extension to ".png"
+        cv2.imwrite(save_path_mask+f"/{counter}.png", transformed["mask"])  # Modify the file extension to ".png"
+        counter += 1
+
+
+# def smooth(y, box_pts):
+#     box = np.ones(box_pts)/box_pts
+#     y_smooth = np.convolve(y, box, mode='same')
+#     return y_smooth
+def smooth(y, weight=0.98):
+    last = y[0]
+    smoothed = []
+    for point in y:
+        smoothed_val = last * weight + (1 - weight) * point
+        smoothed.append(smoothed_val)
+        last = smoothed_val
+    return np.array(smoothed)
+
+def plot_and_save_metrics(train_data, test_data, log_dir, weight=0.98):
+    # Create and save a plot for each metric
+    for metric, (train_steps, train_values) in train_data.items():
+        test_steps, test_values = test_data[metric]
+        plt.style.use('seaborn-v0_8-notebook') 
+        plt.figure()
+        plt.plot(train_steps, train_values, alpha=0.1, label='Train Original', color='blue')  # Plot the original training data with reduced opacity
+        plt.plot(train_steps, smooth(train_values, weight), alpha=1.0, label=f'Train Smoothed (weight={weight})', color='blue')  # Plot the smoothed training data with full opacity
+        plt.plot(test_steps, test_values, alpha=0.1, label='Test Original', color='red')  # Plot the original test data with reduced opacity
+        plt.plot(test_steps, smooth(test_values, weight), alpha=1.0, label=f'Test Smoothed (weight={weight})', color='red')  # Plot the smoothed test data with full opacity
+        plt.title(metric)
+        plt.xlabel('Epoche')
+        plt.ylabel(f'{metric}')
+        plt.legend(loc='lower right')  # Move the legend to the lower right corner
+        plt.ylim(bottom=0.9)
+        plt.grid(True)
+        plt.savefig(f'{log_dir}/{metric}.png')
+        plt.close()
+
+    
+    plt.style.use('seaborn-v0_8-notebook')     
+    plt.figure()
+    for metric, (train_steps, train_values) in train_data.items():
+        test_steps, test_values = test_data[metric]
+        #plt.plot(train_steps, train_values, alpha=0.0, label=f'Train {metric}')  # Plot the original training data with reduced opacity
+        #plt.plot(train_steps, smooth(train_values, weight), alpha=1.0, label=f'Train Smoothed {metric} (weight={weight})')  # Plot the smoothed training data with full opacity
+        plt.plot(test_steps, test_values, alpha=0.0, label=f'Test {metric}')  # Plot the original test data with reduced opacity
+        plt.plot(test_steps, smooth(test_values, weight), alpha=1.0, label=f'Test Smoothed {metric} (weight={weight})')  # Plot the smoothed test data with full opacity
+    plt.title('All Metrics')
+    plt.xlabel('Epoche')
+    plt.ylabel('Wert')
+    plt.ylim(bottom=0.9)
+    plt.grid(True)
+    plt.legend(loc='lower right')  # Move the legend to the lower right corner
+    plt.savefig(f'{log_dir}/all_metrics.png')
+    plt.close()
+
+
+
+def plot_individual_metrics(train_data, test_data, log_dir, weight=0.98):
+    plt.style.use('seaborn-v0_8-notebook') 
+    for metric, (train_steps, train_values) in train_data.items():
+        test_steps, test_values = test_data[metric]
+        plt.figure()
+        smooth_train_values = smooth(train_values, weight)
+        plt.plot(train_steps, train_values, alpha=0.2, label='Train Original', color='blue')  # Plot the original training data with reduced opacity
+        plt.plot(train_steps, smooth_train_values, alpha=1.0, label=f'Train geglättet', color='blue')  # Plot the smoothed training data with full opacity
+        plt.plot(test_steps, test_values, alpha=0.2, label='Test Original', color='red')  # Plot the original test data with reduced opacity
+        plt.plot(test_steps, smooth(test_values, weight), alpha=1.0, label=f'Test geglättet', color='red')  # Plot the smoothed test data with full opacity
+        #plt.title(metric)
+        max_y = max(smooth_train_values)
+        print(f"max {metric} = {max_y} ")
+        plt.xlabel('Epoche')
+        plt.ylabel(f'{metric}')
+        plt.legend(loc='lower right', fontsize='x-large')  # Move the legend to the lower right corner
+        plt.tick_params(axis='both', which='both', pad=1)  # Add this line
+        plt.ylim(bottom=0.9)
+        plt.grid(True)
+        plt.savefig(f'{log_dir}/{metric}.png')
+        plt.close()
+
+def plot_all_metrics(train_data, test_data, log_dir, weight=0.98):
+    plt.style.use('seaborn-v0_8-notebook')     
+    plt.figure()
+    for metric, (train_steps, train_values) in train_data.items():
+        test_steps, test_values = test_data[metric]
+        smooth_test_values = smooth(test_values, weight)
+        #plt.plot(test_steps, test_values, alpha=0.0, label=f'Test {metric}')  # Plot the original test data with reduced opacity
+        plt.plot(test_steps, smooth_test_values, alpha=1.0, label=f'{metric}')
+        max_y = max(smooth_test_values)  # Find the maximum y value
+        print(f"max {metric} = {max_y} ")
+        #plt.axhline(y=max_y, color='red', linestyle='--')  # Draw a red dashed line at the maximum y value
+         # Plot the smoothed test data with full opacity
+    #plt.title('Geglättete Validierungsmetriken')
+    plt.xlabel('Epoche')
+    plt.ylabel('Wert')
+    plt.legend(loc='lower right', fontsize='x-large')
+    #plt.yticks(np.arange(0.9,1, 0.01))
+    #plt.text(0.74, 0.5, 'Your text here', transform=plt.gcf().transFigure)
+
+    plt.ylim(bottom=0.9)
+    plt.grid(True)
+    plt.tick_params(axis='both', which='both', pad=1)  # Add this line
+    plt.savefig(f'{log_dir}/all_metrics.png')
+    plt.close()
+
+
+def plot_two_logs(train_data1, test_data1, train_data2, test_data2, log_dir, weight=0.98):
+    plt.style.use('seaborn-v0_8-notebook') 
+
+    for metric in train_data1.keys():
+        plt.figure()
+
+        # Plot training data from log1
+        train_steps1, train_values1 = train_data1[metric]
+        plt.plot(train_steps1, train_values1, alpha=0.2, label='Train1 Original', color='blue')  # Plot the original training data from log1 with reduced opacity
+        plt.plot(train_steps1, smooth(train_values1, weight), alpha=1.0, label=f'Train1 Smoothed (weight={weight})', color='blue')  # Plot the smoothed training data from log1 with full opacity
+
+        # Plot testing data from log1
+        test_steps1, test_values1 = test_data1[metric]
+        plt.plot(test_steps1, test_values1, alpha=0.2, label='Test1 Original', color='green')  # Plot the original testing data from log1 with reduced opacity
+        plt.plot(test_steps1, smooth(test_values1, weight), alpha=1.0, label=f'Test1 Smoothed (weight={weight})', color='green')  # Plot the smoothed testing data from log1 with full opacity
+
+        # Plot training data from log2
+        train_steps2, train_values2 = train_data2[metric]
+        plt.plot(train_steps2, train_values2, alpha=0.2, label='Train2 Original', color='red')  # Plot the original training data from log2 with reduced opacity
+        plt.plot(train_steps2, smooth(train_values2, weight), alpha=1.0, label=f'Train2 Smoothed (weight={weight})', color='red')  # Plot the smoothed training data from log2 with full opacity
+
+        # Plot testing data from log2
+        test_steps2, test_values2 = test_data2[metric]
+        plt.plot(test_steps2, test_values2, alpha=0.2, label='Test2 Original', color='purple')  # Plot the original testing data from log2 with reduced opacity
+        plt.plot(test_steps2, smooth(test_values2, weight), alpha=1.0, label=f'Test2 Smoothed (weight={weight})', color='purple')  # Plot the smoothed testing data from log2 with full opacity
+
+        plt.title(metric)
+        plt.xlabel('Epoche')
+        plt.ylabel(f'{metric}')
+        plt.legend(loc='lower right')  # Move the legend to the lower right corner
+        plt.ylim(bottom=0.9)
+        plt.tick_params(axis='both', which='both', pad=1)  # Add this line
+        plt.grid(True)
+        plt.savefig(f'{log_dir}/{metric}_comparison.png')
+        plt.close()

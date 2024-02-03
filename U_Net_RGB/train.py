@@ -4,16 +4,17 @@ import torch.nn as nn
 import torch.optim as optim
 import config
 from torchmetrics import MetricCollection
-from model import UNet
+from Generator import Generator
 from utils import (
     load_checkpoint,
     save_checkpoint,
     get_loaders,
-    check_accuracy,
+    #check_accuracy,
     create_directory,
-    plot_one_example,
-    get_all_metrics,
-    plot_and_save_metrics,plot_index_example
+    save_imgs,
+    #plot_one_example,
+    #get_all_metrics,
+    #plot_and_save_metrics,plot_index_example
 )
 from torch.utils.tensorboard import SummaryWriter
 
@@ -23,10 +24,11 @@ def train_fn(loader, model, optimizer,loss_fn,scaler):
 
     for batch_idx, (data,targets) in enumerate(loop):
         data = data.to(device = config.DEVICE)
-        targets = targets.float().unsqueeze(1).to(device = config.DEVICE)
+        targets = targets.float().to(device = config.DEVICE)
 
         
         preds = model(data)
+        #print(preds.shape,targets.shape)
         loss = loss_fn(preds,targets)
 
         optimizer.zero_grad()
@@ -40,8 +42,8 @@ def main():
     create_directory(config.OUTPUT_DIR)
     create_directory(config.CHECKPOINT_DIR)
     writer = SummaryWriter(log_dir=config.LOG_DIR)
-    model = UNet(in_channels=3 , out_channels=1).to(device = config.DEVICE)
-    loss_fn = nn.BCEWithLogitsLoss()
+    model = Generator(in_channels=3).to(device = config.DEVICE)
+    loss_fn = nn.L1Loss()
     optimizer = optim.Adam(model.parameters(),lr =config.LEARNING_RATE)
     metrics = MetricCollection(config.METRICS).to(device = config.DEVICE)
 
@@ -53,12 +55,12 @@ def main():
 
     train_loader,val_loader = get_loaders(
         config.TRAIN_IMG_DIR,
-        config.TRAIN_MASK_DIR,
+        config.TRAIN_TRANS_DIR,
         config.VAL_IMG_DIR,
-        config.VAL_MASK_DIR,
+        config.VAL_TRANS_DIR,
         config.BATCH_SIZE,
-        config.train_transform,
-        config.val_transforms,
+        config.TRAIN_TRANSFORM,
+        config.TEST_TRANSFORM,
         config.NUM_WORKERS,
         config.PIN_MEMORY,
     )
@@ -68,17 +70,17 @@ def main():
         train_fn(train_loader,model,optimizer,loss_fn,scaler)
 
         #save Model 
-        if config.SAVE_MODEL and epoch % 50 == 0:
-            save_checkpoint(model, optimizer , filename=config.CHECKPOINT_FILE)
+        #if config.SAVE_MODEL and epoch % 50 == 0:
+            #save_checkpoint(model, optimizer , filename=config.CHECKPOINT_FILE)
         #Check accuracy on training data
-        check_accuracy(train_loader, model, device=config.DEVICE, metrics=metrics, writer=writer, epoch=epoch, is_train=True)
+        #check_accuracy(train_loader, model, device=config.DEVICE, metrics=metrics, writer=writer, epoch=epoch, is_train=True)
 
         # Check accuracy on validation data
-        check_accuracy(val_loader, model, device=config.DEVICE, metrics=metrics, writer=writer, epoch=epoch, is_train=False)
+        #check_accuracy(val_loader, model, device=config.DEVICE, metrics=metrics, writer=writer, epoch=epoch, is_train=False)
 
-        if epoch % 20 == 0:
-            plot_index_example(val_loader,model,0,epoch,folder = config.OUTPUT_DIR)
-            #save_prediction_imgs(val_loader, model, folder= config.OUTPUT_DIR)
+        if epoch % 10 == 0:
+            #save_some_examples(gen, val_loader, epoch, folder= config.OUTPUT_DIR)
+            save_imgs(model, val_loader, epoch, folder= config.OUTPUT_DIR)
 
 
 if __name__ == "__main__":
