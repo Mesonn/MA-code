@@ -606,3 +606,44 @@ def plot_two_logs(train_data1, test_data1, train_data2, test_data2, log_dir, wei
         plt.grid(True)
         plt.savefig(f'{log_dir}/{metric}_comparison.png')
         plt.close()
+
+
+def corp_mask(mask_path, patch_size):
+    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE) 
+    patch_size_x , patch_size_y = patch_size
+    if patch_size_x > mask.shape[1] or patch_size_y > mask.shape[0]:
+        raise ValueError("Patch size is larger than mask size")
+    SIZE_X = (mask.shape[1]//patch_size_x)*patch_size_x
+    SIZE_Y = (mask.shape[0]//patch_size_y)*patch_size_y
+    rest_pixels_x = mask.shape[1] - SIZE_X
+    rest_pixels_y = mask.shape[0] - SIZE_Y
+    origin_x = rest_pixels_x // 2
+    origin_y = rest_pixels_y // 2
+    corped_mask = mask[origin_y:origin_y+SIZE_Y, origin_x:origin_x+SIZE_X]
+    return corped_mask        
+
+
+
+def plot_image_mask_pred(image, mask, pred, save_dir):
+    fig, axs = plt.subplots(1, 4, figsize=(20, 5), constrained_layout=True)
+
+    axs[0].imshow(image)
+    axs[0].set_title('Original Image')
+
+    axs[1].imshow(mask, cmap='tab20b')
+    axs[1].set_title('Ground Truth')
+
+    axs[2].imshow(pred, cmap='tab20b')
+    axs[2].set_title('Prediction')
+
+    #pred_mask = np.where(pred > 0, 255, 0).astype(np.uint8)
+    masked_image = cv2.bitwise_and(image, image, mask=pred)
+    axs[3].imshow(masked_image)
+    axs[3].set_title('Masked Bface')
+
+    for ax in axs:
+        ax.axis('off')
+
+    save_path = os.path.join(save_dir, f"result.png")
+    plt.savefig(save_path)
+    plt.close(fig)

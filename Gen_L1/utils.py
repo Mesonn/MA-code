@@ -334,3 +334,26 @@ def make_GAN_prediction(image_path,checkpoint_file, save_dir =None):
         cv2.imwrite(merged_image_path, cv2.cvtColor(merged_image, cv2.COLOR_RGB2BGR))
 
     return corped_image, merged_image
+
+def check_accuracy_gen(loader, generator, metrics, device=config.DEVICE, writer=None, epoch=None, is_train=False):
+    generator.eval()
+
+    with torch.no_grad():
+        for batch_idx, (x, y) in enumerate(loader):
+            x = x.to(device)
+            y = y.to(device)
+            fake = generator(x)
+
+            # Update gen metrics 
+            metrics.update(fake, y)
+
+        # Compute metrics
+        computed_gen_metrics = metrics.compute()
+
+        # Add metrics to TensorBoard
+        for name, value in computed_gen_metrics.items():
+            writer.add_scalar(f'{"Train" if is_train else "Validation"}/{name}', value, epoch)
+
+        metrics.reset()
+
+    generator.train()

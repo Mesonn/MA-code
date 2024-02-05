@@ -8,7 +8,7 @@ from torchmetrics.classification import BinaryAccuracy,BinaryF1Score,BinaryJacca
 import os
 import cv2
 from datetime import datetime
-timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+timestamp = datetime.now().strftime("%Y/%m/%d_%H:%M:%S")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 TRAIN_IMG_DIR = os.path.join(BASE_DIR, "dataset/train/bface")
