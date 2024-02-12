@@ -34,7 +34,7 @@ class Generator(nn.Module):
         self.down2 = Block(features*2, features*4, down= True, act = "leaky",use_dropout= False)
         self.down3 = Block(features*4, features*8, down= True, act = "leaky",use_dropout= False)
         self.down4 = Block(features*8, features*8, down= True, act = "leaky",use_dropout= False)
-        self.down5 = Block(features*8, features*8, down= True, act = "leaky",use_dropout= False)
+        self.down5 = Block(features*8, features*8, down= True, act = "leaky",use_dropout= True)
         self.down6 = Block(features*8, features*8, down= True, act = "leaky",use_dropout= False)
 
         self.bottelneck  = nn.Sequential(
@@ -50,7 +50,7 @@ class Generator(nn.Module):
         )
         self.up1 = Block(features*8, features*8, down= False, act="relu", use_dropout=True)
         self.up2 = Block(features*8*2, features*8, down= False, act="relu", use_dropout=True)
-        self.up3 = Block(features*8*2, features*8, down= False, act="relu", use_dropout=False)
+        self.up3 = Block(features*8*2, features*8, down= False, act="relu", use_dropout=True)
         self.up4 = Block(features*8*2, features*8, down= False, act="relu", use_dropout=False)
         self.up5 = Block(features*8*2, features*4, down= False, act="relu", use_dropout=False)
         self.up6 = Block(features*4*2, features*2, down= False, act="relu", use_dropout=False)

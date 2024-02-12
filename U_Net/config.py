@@ -6,7 +6,7 @@ import os
 import cv2
 from datetime import datetime
 from torchmetrics.classification import BinaryAccuracy,BinaryF1Score,BinaryJaccardIndex,Dice
-timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+timestamp = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"

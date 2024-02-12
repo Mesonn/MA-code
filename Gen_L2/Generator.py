@@ -48,8 +48,8 @@ class Generator(nn.Module):
             nn.ReLU(),
             nn.Dropout(0.5)
         )
-        self.up1 = Block(features*8, features*8, down= False, act="relu", use_dropout=True)
-        self.up2 = Block(features*8*2, features*8, down= False, act="relu", use_dropout=True)
+        self.up1 = Block(features*8, features*8, down= False, act="relu", use_dropout=False)
+        self.up2 = Block(features*8*2, features*8, down= False, act="relu", use_dropout=False)
         self.up3 = Block(features*8*2, features*8, down= False, act="relu", use_dropout=False)
         self.up4 = Block(features*8*2, features*8, down= False, act="relu", use_dropout=False)
         self.up5 = Block(features*8*2, features*4, down= False, act="relu", use_dropout=False)

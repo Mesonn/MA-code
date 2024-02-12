@@ -10,15 +10,15 @@ import tifffile as tiff
 from sklearn.model_selection import train_test_split
 import numpy as np
 import shutil
-from Generator import Generator
 import cv2
 from patchify import patchify,unpatchify
 from torchvision.utils import save_image
 
 def save_imgs(gen, val_loader, epoch, folder):
     x, y = next(iter(val_loader))
+    y = torch.unsqueeze(y,dim =1)
     x, y = x.to(config.DEVICE), y.to(config.DEVICE)
-    
+    print(x.shape, y.shape)
     gen.eval()  # Set the model to evaluation mode
     with torch.no_grad():  # Disable gradient calculation
         prediction = gen(x)
@@ -27,17 +27,17 @@ def save_imgs(gen, val_loader, epoch, folder):
     for i in range(3):
         plt.subplot(3, 3, i*3+1)
         plt.title("Input Image")
-        plt.imshow(x[i].cpu().numpy().transpose((1, 2, 0)) * 0.5 + 0.5)
+        plt.imshow(x[i].cpu().numpy().transpose((1, 2, 0)) * 0.5 + 0.5, cmap='gray')
         plt.axis("off")
 
         plt.subplot(3, 3, i*3+2)
         plt.title("Ground Truth")
-        plt.imshow(y[i].cpu().numpy().transpose((1, 2, 0)) * 0.5 + 0.5)
+        plt.imshow(y[i].cpu().numpy().transpose((1, 2, 0)) * 0.5 + 0.5, cmap='gray')
         plt.axis("off")
 
         plt.subplot(3, 3, i*3+3)
         plt.title("Prediction Image")
-        plt.imshow(prediction[i].cpu().numpy().transpose((1, 2, 0)) * 0.5 + 0.5)
+        plt.imshow(prediction[i].cpu().numpy().transpose((1, 2, 0)) * 0.5 + 0.5, cmap='gray')
         plt.axis("off")
     
     plt.savefig(os.path.join(folder, f"epoch_{epoch}.png"))
@@ -275,86 +275,3 @@ def get_loaders(
         shuffle=False,
     )
     return train_loader, val_loader
-
-def corp_image(image,patch_size):
-    patch_size_x , patch_size_y,channels = patch_size
-    if patch_size_x > image.shape[1] or patch_size_y > image.shape[0]:
-        raise ValueError("Patch size is larger than image size")
-    SIZE_X = (image.shape[1]//patch_size_x)*patch_size_x
-    SIZE_Y = (image.shape[0]//patch_size_y)*patch_size_y
-    rest_pixels_x = image.shape[1] - SIZE_X
-    rest_pixels_y = image.shape[0] - SIZE_Y
-    origin_x = rest_pixels_x // 2
-    origin_y = rest_pixels_y // 2
-    corped_image = image[origin_y:origin_y+SIZE_Y, origin_x:origin_x+SIZE_X]
-    return corped_image
-
-def make_GAN_prediction(image_path,checkpoint_file, save_dir =None):
-    image = cv2.imread(image_path)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    patch_size = (256,256,3)
-    corped_image = corp_image(image,patch_size)
-    image_patches = patchify(corped_image,patch_size,step = patch_size[0])
-    model = Generator().to(device = config.DEVICE)
-    optimizer = torch.optim.Adam(model.parameters(),lr =config.LEARNING_RATE)
-    image_prediction = []
-    load_checkpoint(checkpoint_file,model = model ,optimizer=optimizer,lr  = config.LEARNING_RATE)
-    #model.load_state_dict(torch.load(weights)[0])
-    model.eval()
-    for i in range(image_patches.shape[0]):
-        for j in range(image_patches.shape[1]):
-            patch = image_patches[i,j,:,:]
-            patch = patch.squeeze()
-            patch = config.TEST_TRANSFORM(image = patch)["image"]
-            with torch.no_grad():
-                patch = patch.unsqueeze(0).to(device = config.DEVICE) 
-                prediction = model(patch).squeeze()
-                prediction = prediction.permute(1,2,0) 
-                #plt.imshow(prediction.cpu().numpy())
-                print(prediction.shape)
-                image_prediction.append(prediction.cpu().numpy())
-    image_prediction = np.array(image_prediction)
-    image_prediction = image_prediction.reshape(image_patches.shape[0],image_patches.shape[1],1,*patch_size)
-    target_image_shape = (corped_image.shape)
-    merged_image = unpatchify(image_prediction,target_image_shape)
-    merged_image = merged_image * 0.5 + 0.5
-    #merged_image = denormalize(merged_image, [0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-    merged_image = merged_image * 255.0
-    merged_image = merged_image.astype(np.uint8)
-    if save_dir is not None:
-        # Ensure the save directory exists
-        os.makedirs(save_dir, exist_ok=True)
-
-        # Save the cropped image as an RGB image
-        cropped_image_path = os.path.join(save_dir, 'cropped_image.png')
-        cv2.imwrite(cropped_image_path, cv2.cvtColor(corped_image, cv2.COLOR_RGB2BGR))
-
-        # Save the merged prediction image as a grayscale image
-        merged_image_path = os.path.join(save_dir, 'merged_image.png')
-        cv2.imwrite(merged_image_path, cv2.cvtColor(merged_image, cv2.COLOR_RGB2BGR))
-
-    return corped_image, merged_image
-
-
-def check_accuracy_gen(loader, generator, metrics, device=config.DEVICE, writer=None, epoch=None, is_train=False):
-    generator.eval()
-
-    with torch.no_grad():
-        for batch_idx, (x, y) in enumerate(loader):
-            x = x.to(device)
-            y = y.to(device)
-            fake = generator(x)
-
-            # Update gen metrics 
-            metrics.update(fake, y)
-
-        # Compute metrics
-        computed_gen_metrics = metrics.compute()
-
-        # Add metrics to TensorBoard
-        for name, value in computed_gen_metrics.items():
-            writer.add_scalar(f'{"Train" if is_train else "Validation"}/{name}', value, epoch)
-
-        metrics.reset()
-
-    generator.train()

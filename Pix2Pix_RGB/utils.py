@@ -10,7 +10,9 @@ import tifffile as tiff
 from sklearn.model_selection import train_test_split
 import numpy as np
 import shutil
+import seaborn as sns
 from Generator import Generator
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 import cv2
 from patchify import patchify,unpatchify
 from torchvision.utils import save_image
@@ -289,11 +291,14 @@ def corp_image(image,patch_size):
     corped_image = image[origin_y:origin_y+SIZE_Y, origin_x:origin_x+SIZE_X]
     return corped_image
 
-def make_GAN_prediction(image_path,checkpoint_file, save_dir =None):
+def make_GAN_prediction(image_path,trans_path,checkpoint_file, save_dir =None):
     image = cv2.imread(image_path)
+    trans = cv2.imread(trans_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    #trans = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     patch_size = (256,256,3)
     corped_image = corp_image(image,patch_size)
+    corped_trans = corp_image(trans,patch_size)
     image_patches = patchify(corped_image,patch_size,step = patch_size[0])
     model = Generator().to(device = config.DEVICE)
     optimizer = torch.optim.Adam(model.parameters(),lr =config.LEARNING_RATE)
@@ -317,10 +322,24 @@ def make_GAN_prediction(image_path,checkpoint_file, save_dir =None):
     image_prediction = image_prediction.reshape(image_patches.shape[0],image_patches.shape[1],1,*patch_size)
     target_image_shape = (corped_image.shape)
     merged_image = unpatchify(image_prediction,target_image_shape)
+     # Get the minimum and maximum pixel values from the input image
+    # Get the minimum and maximum pixel values from the input image
+    min_val = np.min(merged_image)
+    max_val = np.max(merged_image)
+
+    # Clip the merged image to the same range as the input image
+    merged_cliped_image = np.clip(merged_image, min_val, max_val)
+
+    # Scale and convert the clipped image
+    merged_cliped_image = merged_cliped_image * 0.5 + 0.5
+    merged_cliped_image = merged_cliped_image * 255.0
+    merged_cliped_image = merged_cliped_image.astype(np.uint8)
+
+    # Scale and convert the original merged image
     merged_image = merged_image * 0.5 + 0.5
-    #merged_image = denormalize(merged_image, [0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     merged_image = merged_image * 255.0
     merged_image = merged_image.astype(np.uint8)
+
     if save_dir is not None:
         # Ensure the save directory exists
         os.makedirs(save_dir, exist_ok=True)
@@ -329,11 +348,20 @@ def make_GAN_prediction(image_path,checkpoint_file, save_dir =None):
         cropped_image_path = os.path.join(save_dir, 'cropped_image.png')
         cv2.imwrite(cropped_image_path, cv2.cvtColor(corped_image, cv2.COLOR_RGB2BGR))
 
+        cropped_trans_path = os.path.join(save_dir, 'cropped_trans.png')
+        cv2.imwrite(cropped_trans_path, cv2.cvtColor(corped_trans, cv2.COLOR_RGB2BGR))
         # Save the merged prediction image as a grayscale image
         merged_image_path = os.path.join(save_dir, 'merged_image.png')
         cv2.imwrite(merged_image_path, cv2.cvtColor(merged_image, cv2.COLOR_RGB2BGR))
 
-    return corped_image, merged_image
+        # Save the clipped merged prediction image as a grayscale image
+        merged_cliped_image_path = os.path.join(save_dir, 'merged_cliped_image.png')
+        cv2.imwrite(merged_cliped_image_path, cv2.cvtColor(merged_cliped_image, cv2.COLOR_RGB2BGR))
+
+        
+        
+    return corped_image,merged_image,merged_cliped_image, corped_trans
+
 
 
 def check_accuracy_gen(loader, generator, gen_metrics, device=config.DEVICE, writer=None, epoch=None, is_train=False):
@@ -358,3 +386,139 @@ def check_accuracy_gen(loader, generator, gen_metrics, device=config.DEVICE, wri
         gen_metrics.reset()
 
     generator.train()
+
+
+
+def plot_tensorboard_log(log_dir, scalar_name):
+    # Create an event accumulator
+    event_acc = EventAccumulator(log_dir)
+
+    # Load the events from the log file
+    event_acc.Reload()
+
+    # Get the data for the specified scalar
+    scalar_data = event_acc.Scalars(scalar_name)
+
+    # Get the steps and the corresponding values
+    steps = [s.step for s in scalar_data]
+    values = [s.value for s in scalar_data]
+
+    return steps, values
+
+def get_all_metrics(log_dir, metrics, dset = "Validation" ):
+    # Initialize a dictionary to store the steps and values for each metric
+    data = {}
+
+    for metric in metrics:
+        metric_name = f'{dset}/{metric}'
+        # Get the steps and values for the current metric
+        steps, values = plot_tensorboard_log(log_dir, metric_name)
+
+        # Store the steps and values in the dictionary
+        data[metric] = (steps, values)
+
+    return data 
+
+
+def smooth(y, weight=0.98):
+    last = y[0]
+    smoothed = []
+    for point in y:
+        point = float(point)  # Convert 'point' to float
+        smoothed_val = last * weight + (1 - weight) * point
+        smoothed.append(smoothed_val)
+        last = smoothed_val
+    return np.array(smoothed)
+
+def plot_separate_curves(GAN_data1, GAN_data2, GAN_data3, save_dir, weight=0.98):
+    
+    color_palette = sns.color_palette()
+
+    for metric, (steps, values) in GAN_data1.items():
+        plt.figure()
+        plt.style.use('seaborn-v0_8-notebook')
+        
+
+        # Get the metric data for each model
+        steps, GAN_values1 = GAN_data1[metric]
+        _, GAN_values2 = GAN_data2[metric]
+        _, GAN_values3 = GAN_data3[metric]
+
+        # Plot the true values with reduced opacity
+        plt.plot(steps, GAN_values1, alpha=0.2, label='4L original ', color=color_palette[0])
+        plt.plot(steps, GAN_values2, alpha=0.2, label='2L original', color=color_palette[1])
+        plt.plot(steps, GAN_values3, alpha=0.2, label='0L original', color=color_palette[2])
+
+        # Uncomment the following lines if you want to plot the smoothed values
+        plt.plot(steps, smooth(GAN_values1, weight), alpha=1.0, label='4L geglättet', color=color_palette[0])
+        plt.plot(steps, smooth(GAN_values2, weight), alpha=1.0, label='2L geglättet', color=color_palette[1])
+        plt.plot(steps, smooth(GAN_values3, weight), alpha=1.0, label='0L geglättet', color=color_palette[2])
+
+        plt.xlabel('Epoch')
+        plt.ylabel(f'{metric}')
+        plt.legend(fontsize='x-large')
+        if metric == 'PSNR':
+            plt.ylim(14, 20)  # Set limit for PSNR
+        if metric == 'LPIPS':
+            plt.ylim(0.1, 0.4)  # Set limit for PSNR
+        if metric == 'MSE':
+            plt.ylim(0.04, 0.12)  # Set limit for PSNR
+        if metric == 'SSIM':
+            plt.ylim(0.5, 0.85)  # Set limit for PSNR    
+            plt.legend(loc='lower right', fontsize='x-large')
+        plt.tick_params(axis='both', which='both', pad=1)
+        plt.grid(True)
+        
+        # Save the plot to the specified directory
+        plt.savefig(f'{save_dir}/{metric}.png')
+        plt.close()     
+
+def plot_separate_4curves(GAN_data1, GAN_data2, L1_data1, L1_data2, save_dir, weight=0.98):
+    
+    color_palette = sns.color_palette()
+
+    for metric, (steps, values) in GAN_data1.items():
+        plt.figure()
+        plt.style.use('seaborn-v0_8-notebook')
+        
+
+        # Get the metric data for each model
+        steps, GAN_values1 = GAN_data1[metric]
+        _, GAN_values2 = GAN_data2[metric]
+        _, L1_values1 = L1_data1[metric]
+        _, L1_values2 = L1_data2[metric]
+
+        # Plot the true values with reduced opacity
+        # plt.plot(steps, GAN_values1, alpha=0.2, label='GAN ohne DA original', color=color_palette[0])
+        # plt.plot(steps, GAN_values2, alpha=0.2, label='GAN mit DA original', color=color_palette[1])
+        # plt.plot(steps, L1_values1, alpha=0.2, label='L1 ohne DA original', color=color_palette[2])
+        # plt.plot(steps, L1_values2, alpha=0.2, label='L1 mit DA original', color=color_palette[3])
+
+        # Uncomment the following lines if you want to plot the smoothed values
+        plt.plot(steps, smooth(GAN_values1, weight), alpha=1.0, label='GAN ohne DA ', color=color_palette[0])
+        plt.plot(steps, smooth(GAN_values2, weight), alpha=1.0, label='GAN mit DA ', color=color_palette[1])
+        plt.plot(steps, smooth(L1_values1, weight), alpha=1.0, label='L1 ohne DA ', color=color_palette[2])
+        plt.plot(steps, smooth(L1_values2, weight), alpha=1.0, label='L1 mit DA ', color=color_palette[3])
+
+        plt.xlabel('Epoch')
+        plt.ylabel(f'{metric}')
+
+        plt.legend(fontsize='x-large')
+        
+        # Set specific y-limits for each metric
+        if metric == 'PSNR':
+            plt.ylim(17, 20.5)  
+        if metric == 'LPIPS':
+            plt.ylim(0.1, 0.3)  # Set limit for LPIPS
+        if metric == 'MSE':
+            plt.ylim(0.03, 0.09)  # Set limit for MSE
+        if metric == 'SSIM':
+            plt.ylim(0.6, 0.85)  # Set limit for SSIM
+            plt.legend(loc='lower right', fontsize='x-large')
+
+        plt.tick_params(axis='both', which='both', pad=1)
+        plt.grid(True)
+        
+        # Save the plot to the specified directory
+        plt.savefig(f'{save_dir}/{metric}.png')
+        plt.close()

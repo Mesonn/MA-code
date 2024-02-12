@@ -43,7 +43,7 @@ def main():
     create_directory(config.CHECKPOINT_DIR)
     writer = SummaryWriter(log_dir=config.LOG_DIR)
     model = Generator(in_channels=3).to(device = config.DEVICE)
-    loss_fn = nn.MSELoss()
+    loss_fn = nn.L1Loss()
     optimizer = optim.Adam(model.parameters(),lr =config.LEARNING_RATE)
     metrics = MetricCollection(config.METRICS).to(device = config.DEVICE)
 
