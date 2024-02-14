@@ -34,7 +34,7 @@ class GehirnDataset(Dataset):
         trans = cv2.imread(trans_path)
 
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        trans = cv2.cvtColor(trans, cv2.COLOR_BGR2RGB)
+        trans = cv2.cvtColor(trans, cv2.COLOR_BGR2GRAY)
 
         # image = np.array(Image.open(img_path).convert("RGB"))
         # trans = np.array(Image.open(trans_path).convert("RGB"))
@@ -42,11 +42,11 @@ class GehirnDataset(Dataset):
 
         if self.transform:
 
-            transformed = self.transform(image = image, trans = trans)
+            transformed = self.transform(image = image, mask = trans)
             # augmentations = config.both_transform(image= image,trans = trans)
             # image,trans = augmentations["image"],augmentations["trans"]
             image = transformed["image"]
-            trans = transformed["trans"]
+            trans = transformed["mask"]
             
         return image,trans
 
@@ -78,15 +78,16 @@ class GehirnDataset(Dataset):
 #         return input_image,target_image
     
 if __name__ == "__main__":
-    image_dir = "Pix2Pix/dataset/Bface_patches"
-    trans_dir = "Pix2Pix/dataset/Mask_patches"
-    dataset = GehirnDataset(image_dir,trans_dir)
+    image_dir = config.TRAIN_IMG_DIR
+    trans_dir = config.TRAIN_TRANS_DIR
+    dataset = GehirnDataset(image_dir,trans_dir,transform=config.TRAIN_TRANSFORM)
     loader = DataLoader(dataset, batch_size=1)
     for x, y in loader:
         #print(x.shape)
         #plt.show()
-        x = x.numpy().squeeze()
+        x = x.numpy().squeeze().transpose(1,2,0)
         y = y.numpy().squeeze()
+        print(x.shape)
         print(x.shape, y.shape)
         fig, axs = plt.subplots(1, 2)
 

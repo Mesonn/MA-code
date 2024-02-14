@@ -57,8 +57,8 @@ class Generator(nn.Module):
         self.up7 = Block(features*2*2, features, down= False, act="relu", use_dropout=False)
 
         self.final_up = nn.Sequential(
-            nn.ConvTranspose2d(features*2, in_channels, kernel_size= 4, stride = 2, padding= 1),
-            nn.Tanh()
+            nn.ConvTranspose2d(features*2, 1, kernel_size= 4, stride = 2, padding= 1),
+            #nn.Tanh()
         )
 
     def forward(self,x):

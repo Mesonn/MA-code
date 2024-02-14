@@ -11,8 +11,8 @@ from datetime import datetime
 timestamp = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-TRAIN_IMG_DIR = os.path.join(BASE_DIR, "dataset/train/bface")
-TRAIN_TRANS_DIR = os.path.join(BASE_DIR, "dataset/train/trans")
+TRAIN_IMG_DIR = os.path.join(BASE_DIR, "dataset/train/exbface")
+TRAIN_TRANS_DIR = os.path.join(BASE_DIR, "dataset/train/extrans")
 VAL_IMG_DIR = os.path.join(BASE_DIR, "dataset/test/bface")
 VAL_TRANS_DIR = os.path.join(BASE_DIR, "dataset/test/trans")
 OUTPUT_DIR  = os.path.join(BASE_DIR, f"output/out_{timestamp}")

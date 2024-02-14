@@ -5,6 +5,7 @@ import torch.optim as optim
 import config
 from torchmetrics import MetricCollection
 from Generator import Generator
+from model import UNet
 from utils import (
     load_checkpoint,
     save_checkpoint,
@@ -24,8 +25,8 @@ def train_fn(loader, model, optimizer,loss_fn,scaler):
 
     for batch_idx, (data,targets) in enumerate(loop):
         data = data.to(device = config.DEVICE)
-        targets = targets.float().to(device = config.DEVICE)
-
+        targets = targets.float().unsqueeze(dim = 1).to(device = config.DEVICE)
+        
         
         preds = model(data)
         #print(preds.shape,targets.shape)
@@ -42,7 +43,8 @@ def main():
     create_directory(config.OUTPUT_DIR)
     create_directory(config.CHECKPOINT_DIR)
     writer = SummaryWriter(log_dir=config.LOG_DIR)
-    model = Generator(in_channels=3).to(device = config.DEVICE)
+    #model = Generator(in_channels=3).to(device = config.DEVICE)
+    model = UNet().to(device = config.DEVICE)
     loss_fn = nn.L1Loss()
     optimizer = optim.Adam(model.parameters(),lr =config.LEARNING_RATE)
     metrics = MetricCollection(config.METRICS).to(device = config.DEVICE)
@@ -73,10 +75,10 @@ def main():
         if config.SAVE_MODEL and epoch % 50 == 0:
             save_checkpoint(model, optimizer , filename=config.CHECKPOINT_GEN)
         #Check accuracy on training data
-        check_accuracy_gen(train_loader, model, device=config.DEVICE, metrics=metrics, writer=writer, epoch=epoch, is_train=True)
+        #check_accuracy_gen(train_loader, model, device=config.DEVICE, metrics=metrics, writer=writer, epoch=epoch, is_train=True)
 
         # Check accuracy on validation data
-        check_accuracy_gen(val_loader, model, device=config.DEVICE, metrics=metrics, writer=writer, epoch=epoch, is_train=False)
+        #check_accuracy_gen(val_loader, model, device=config.DEVICE, metrics=metrics, writer=writer, epoch=epoch, is_train=False)
 
         if epoch % 50 == 0:
             #save_some_examples(gen, val_loader, epoch, folder= config.OUTPUT_DIR)
