@@ -73,10 +73,10 @@ def main():
         if config.SAVE_MODEL and epoch % 50 == 0:
             save_checkpoint(model, optimizer , filename=config.CHECKPOINT_GEN)
         #Check accuracy on training data
-        check_accuracy_gen(train_loader, model, device=config.DEVICE, metrics=metrics, writer=writer, epoch=epoch, is_train=True)
+        #check_accuracy_gen(train_loader, model, device=config.DEVICE, metrics=metrics, writer=writer, epoch=epoch, is_train=True)
 
         # Check accuracy on validation data
-        check_accuracy_gen(val_loader, model, device=config.DEVICE, metrics=metrics, writer=writer, epoch=epoch, is_train=False)
+        #check_accuracy_gen(val_loader, model, device=config.DEVICE, metrics=metrics, writer=writer, epoch=epoch, is_train=False)
 
         if epoch % 50 == 0:
             #save_some_examples(gen, val_loader, epoch, folder= config.OUTPUT_DIR)
